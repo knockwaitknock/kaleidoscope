@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Live Camera Kaleidoscope</title>
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: #0b0b0f;
+      color: #eaeaf2;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      min-height: 100vh;
+    }
+    header {
+      padding: 12px 14px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+      position: sticky;
+      top: 0;
+      backdrop-filter: blur(10px);
+    }
+    header .left { display: flex; gap: 10px; align-items: baseline; }
+    header h1 { font-size: 14px; margin: 0; font-weight: 650; letter-spacing: 0.2px; }
+    header .hint { font-size: 12px; opacity: 0.75; }
+    main {
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      gap: 0;
+      height: calc(100vh - 54px);
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: radial-gradient(circle at 50% 50%, #1a1a22, #0b0b0f);
+    }
+    aside {
+      border-left: 1px solid rgba(255,255,255,0.08);
+      padding: 12px 12px 16px;
+      overflow: auto;
+      background: rgba(255,255,255,0.02);
+    }
+    .group {
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 10px;
+      margin-bottom: 10px;
+      background: rgba(255,255,255,0.03);
+    }
+    .group h2 {
+      font-size: 12px;
+      margin: 0 0 8px;
+      opacity: 0.9;
+      font-weight: 650;
+    }
+    label {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      font-size: 12px;
+      margin: 8px 0;
+      opacity: 0.95;
+    }
+    input[type="range"] { width: 170px; }
+    input[type="number"] {
+      width: 90px;
+      background: rgba(0,0,0,0.35);
+      border: 1px solid rgba(255,255,255,0.12);
+      color: inherit;
+      border-radius: 8px;
+      padding: 6px 8px;
+    }
+    button, select {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.14);
+      color: inherit;
+      border-radius: 10px;
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+    button:hover { background: rgba(255,255,255,0.10); }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .note {
+      font-size: 12px;
+      opacity: 0.75;
+      line-height: 1.35;
+      margin-top: 8px;
+    }
+    video { display: none; }
+    @media (max-width: 980px) {
+      main { grid-template-columns: 1fr; }
+      aside { border-left: none; border-top: 1px solid rgba(255,255,255,0.08); }
+      input[type="range"] { width: 55vw; }
+    }
+  </style>
+</head>
+<body>
+<header>
+  <div class="left">
+    <h1>Live Camera Kaleidoscope</h1>
+    <div class="hint">Allow camera → drag sliders</div>
+  </div>
+  <div class="row">
+    <button id="btnStart">Start camera</button>
+    <button id="btnStop" disabled>Stop</button>
+    <button id="btnReset">Reset</button>
+  </div>
+</header>
+
+<main>
+  <canvas id="c"></canvas>
+
+  <aside>
+    <div class="group">
+      <h2>Pattern</h2>
+
+      <label>
+        Segments
+        <input id="segments" type="number" min="3" max="64" step="1" value="12" />
+      </label>
+
+      <label>
+        Zoom
+        <input id="zoom" type="range" min="0.5" max="3" step="0.01" value="1.25" />
+      </label>
+
+      <label>
+        Rotation
+        <input id="rotation" type="range" min="-180" max="180" step="0.1" value="0" />
+      </label>
+
+      <label>
+        Mirror every other wedge
+        <input id="mirror" type="checkbox" checked />
+      </label>
+
+      <label>
+        Smoothing
+        <input id="smooth" type="checkbox" checked />
+      </label>
+
+      <div class="note">
+        Tip: fewer segments = faster. If it’s laggy, lower segments or your browser’s camera resolution.
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Center</h2>
+
+      <label>
+        Center X
+        <input id="cx" type="range" min="0" max="1" step="0.001" value="0.5" />
+      </label>
+
+      <label>
+        Center Y
+        <input id="cy" type="range" min="0" max="1" step="0.001" value="0.5" />
+      </label>
+
+      <label>
+        Radius
+        <input id="radius" type="range" min="0.25" max="1.2" step="0.01" value="0.9" />
+      </label>
+
+      <div class="note">
+        Center controls which part of the video you sample. Radius controls how much of the frame is used.
+      </div>
+    </div>
+
+    <div class="group">
+      <h2>Camera</h2>
+      <label>
+        Facing
+        <select id="facing">
+          <option value="user" selected>Front (selfie)</option>
+          <option value="environment">Back</option>
+        </select>
+      </label>
+
+      <label>
+        Target width
+        <input id="camW" type="number" min="160" max="1920" step="10" value="640" />
+      </label>
+
+      <label>
+        Target height
+        <input id="camH" type="number" min="120" max="1080" step="10" value="480" />
+      </label>
+
+      <div class="note">
+        Camera constraints are “best effort”. If permission fails, try different width/height or switch facing mode.
+      </div>
+    </div>
+  </aside>
+</main>
+
+<video id="v" playsinline muted></video>
+
+<script>
+(() => {
+  const canvas = document.getElementById('c');
+  const ctx = canvas.getContext('2d', { alpha: false });
+
+  const video = document.getElementById('v');
+
+  const btnStart = document.getElementById('btnStart');
+  const btnStop  = document.getElementById('btnStop');
+  const btnReset = document.getElementById('btnReset');
+
+  const elSegments = document.getElementById('segments');
+  const elZoom = document.getElementById('zoom');
+  const elRotation = document.getElementById('rotation');
+  const elMirror = document.getElementById('mirror');
+  const elSmooth = document.getElementById('smooth');
+
+  const elCx = document.getElementById('cx');
+  const elCy = document.getElementById('cy');
+  const elRadius = document.getElementById('radius');
+
+  const elFacing = document.getElementById('facing');
+  const elCamW = document.getElementById('camW');
+  const elCamH = document.getElementById('camH');
+
+  // Offscreen canvas to sample the camera frame
+  const src = document.createElement('canvas');
+  const sctx = src.getContext('2d');
+
+  let stream = null;
+  let rafId = null;
+
+  function resize() {
+    const dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
+    const w = Math.floor(canvas.clientWidth * dpr);
+    const h = Math.floor(canvas.clientHeight * dpr);
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+  }
+  window.addEventListener('resize', resize, { passive: true });
+  resize();
+
+  async function startCamera() {
+    stopCamera();
+
+    const facingMode = elFacing.value;
+    const targetW = parseInt(elCamW.value, 10) || 640;
+    const targetH = parseInt(elCamH.value, 10) || 480;
+
+    const constraints = {
+      audio: false,
+      video: {
+        facingMode,
+        width: { ideal: targetW },
+        height: { ideal: targetH }
+      }
+    };
+
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+      video.srcObject = stream;
+      await video.play();
+
+      // Set source canvas to the actual video size
+      src.width = video.videoWidth || targetW;
+      src.height = video.videoHeight || targetH;
+
+      btnStart.disabled = true;
+      btnStop.disabled = false;
+
+      render();
+    } catch (err) {
+      console.error(err);
+      alert("Could not start camera. Make sure you're on https:// or localhost and allow permission.\n\n" + err.message);
+    }
+  }
+
+  function stopCamera() {
+    if (rafId) cancelAnimationFrame(rafId);
+    rafId = null;
+
+    if (video) {
+      try { video.pause(); } catch {}
+      video.srcObject = null;
+    }
+
+    if (stream) {
+      stream.getTracks().forEach(t => t.stop());
+      stream = null;
+    }
+
+    btnStart.disabled = false;
+    btnStop.disabled = true;
+  }
+
+  function resetControls() {
+    elSegments.value = 12;
+    elZoom.value = 1.25;
+    elRotation.value = 0;
+    elMirror.checked = true;
+    elSmooth.checked = true;
+
+    elCx.value = 0.5;
+    elCy.value = 0.5;
+    elRadius.value = 0.9;
+
+    elFacing.value = "user";
+    elCamW.value = 640;
+    elCamH.value = 480;
+  }
+
+  function render() {
+    resize();
+
+    const W = canvas.width;
+    const H = canvas.height;
+    const cx = W * parseFloat(elCx.value);
+    const cy = H * parseFloat(elCy.value);
+
+    const segments = Math.max(3, Math.min(64, parseInt(elSegments.value, 10) || 12));
+    const zoom = parseFloat(elZoom.value);
+    const rot = (parseFloat(elRotation.value) * Math.PI) / 180;
+    const mirror = !!elMirror.checked;
+
+    const radius = Math.min(W, H) * parseFloat(elRadius.value);
+
+    // Camera frame -> src canvas
+    if (video.readyState >= 2) {
+      // Keep src canvas matched to video size (in case it changes)
+      if (src.width !== video.videoWidth || src.height !== video.videoHeight) {
+        src.width = video.videoWidth;
+        src.height = video.videoHeight;
+      }
+      sctx.drawImage(video, 0, 0, src.width, src.height);
+    }
+
+    ctx.imageSmoothingEnabled = !!elSmooth.checked;
+
+    // Clear
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    // Kaleidoscope: draw N mirrored wedges around center
+    const wedge = (Math.PI * 2) / segments;
+
+    // Map from destination wedge to a slice of the source:
+    // We'll clip a wedge, rotate into place, then draw the source image so that
+    // the chosen center of the source aligns with the kaleidoscope center.
+    //
+    // We sample the source around its own center (srcCx, srcCy), which is linked
+    // to elCx/elCy for intuitive control.
+    const srcCx = src.width * parseFloat(elCx.value);
+    const srcCy = src.height * parseFloat(elCy.value);
+
+    for (let i = 0; i < segments; i++) {
+      ctx.save();
+
+      // Move to center and rotate to wedge position
+      ctx.translate(cx, cy);
+      ctx.rotate(rot + i * wedge);
+
+      // Mirror every other wedge if enabled
+      if (mirror && (i % 2 === 1)) {
+        ctx.scale(-1, 1);
+      }
+
+      // Clip a wedge
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, radius, -wedge / 2, wedge / 2);
+      ctx.closePath();
+      ctx.clip();
+
+      // Draw the camera frame with zoom.
+      // We translate so that src center maps to (0,0) in destination space.
+      ctx.scale(zoom, zoom);
+      ctx.drawImage(src, -srcCx, -srcCy);
+
+      ctx.restore();
+    }
+
+    rafId = requestAnimationFrame(render);
+  }
+
+  // Events
+  btnStart.addEventListener('click', startCamera);
+  btnStop.addEventListener('click', stopCamera);
+  btnReset.addEventListener('click', () => { resetControls(); if (stream) startCamera(); });
+
+  // If user changes facing/constraints while running, restart camera.
+  [elFacing, elCamW, elCamH].forEach(el => {
+    el.addEventListener('change', () => { if (stream) startCamera(); });
+  });
+
+  // If segments changed, clamp immediately
+  elSegments.addEventListener('change', () => {
+    const v = Math.max(3, Math.min(64, parseInt(elSegments.value, 10) || 12));
+    elSegments.value = v;
+  });
+
+  // Auto-start if possible (some browsers require gesture; button is there anyway)
+  if (navigator.mediaDevices?.getUserMedia) {
+    // optional: do nothing; user presses Start
+  } else {
+    alert("Your browser doesn't support getUserMedia.");
+  }
+})();
+</script>
+</body>
+</html>
