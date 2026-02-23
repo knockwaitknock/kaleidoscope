@@ -2,39 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Live Camera Kaleidoscope</title>
   <style>
     :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
       background: #0b0b0f;
       color: #eaeaf2;
-      display: grid;
-      grid-template-rows: auto 1fr;
-      min-height: 100vh;
     }
-    header {
-      padding: 12px 14px;
-      display: flex;
-      gap: 12px;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      background: rgba(255,255,255,0.03);
-      position: sticky;
-      top: 0;
-      backdrop-filter: blur(10px);
-    }
-    header .left { display: flex; gap: 10px; align-items: baseline; }
-    header h1 { font-size: 14px; margin: 0; font-weight: 650; letter-spacing: 0.2px; }
-    header .hint { font-size: 12px; opacity: 0.75; }
-    main {
-      display: grid;
-      grid-template-columns: 1fr 320px;
-      gap: 0;
-      height: calc(100vh - 54px);
+
+    .canvas-wrap {
+      position: relative;
+      width: 100vw;
+      height: 100dvh;
+      overflow: hidden;
     }
     canvas {
       width: 100%;
@@ -42,11 +26,53 @@
       display: block;
       background: radial-gradient(circle at 50% 50%, #1a1a22, #0b0b0f);
     }
-    aside {
-      border-left: 1px solid rgba(255,255,255,0.08);
-      padding: 12px 12px 16px;
-      overflow: auto;
-      background: rgba(255,255,255,0.02);
+
+    .floating-bar {
+      position: absolute;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      z-index: 10;
+    }
+    .floating-bar button {
+      backdrop-filter: blur(12px);
+      background: rgba(0,0,0,0.45);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: #fff;
+      border-radius: 14px;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .floating-bar button:hover { background: rgba(255,255,255,0.12); }
+    .floating-bar button:disabled { opacity: 0.35; pointer-events: none; }
+
+    .scroll-hint {
+      position: absolute;
+      bottom: 68px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      opacity: 0.5;
+      pointer-events: none;
+      animation: pulse 2.5s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 0.3; } 50% { opacity: 0.7; } }
+
+    .controls {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+    .controls h1 {
+      font-size: 16px;
+      margin: 0 0 16px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
     }
     .group {
       border: 1px solid rgba(255,255,255,0.08);
@@ -70,7 +96,7 @@
       margin: 8px 0;
       opacity: 0.95;
     }
-    input[type="range"] { width: 170px; }
+    input[type="range"] { width: 100%; }
     input[type="number"] {
       width: 90px;
       background: rgba(0,0,0,0.35);
@@ -96,112 +122,104 @@
       margin-top: 8px;
     }
     video { display: none; }
-    @media (max-width: 980px) {
-      main { grid-template-columns: 1fr; }
-      aside { border-left: none; border-top: 1px solid rgba(255,255,255,0.08); }
-      input[type="range"] { width: 55vw; }
-    }
   </style>
 </head>
 <body>
-<header>
-  <div class="left">
-    <h1>Live Camera Kaleidoscope</h1>
-    <div class="hint">Allow camera → drag sliders</div>
-  </div>
-  <div class="row">
+
+<div class="canvas-wrap">
+  <canvas id="c"></canvas>
+  <div class="scroll-hint">↓ scroll for controls</div>
+  <div class="floating-bar">
     <button id="btnStart">Start camera</button>
     <button id="btnStop" disabled>Stop</button>
     <button id="btnReset">Reset</button>
   </div>
-</header>
+</div>
 
-<main>
-  <canvas id="c"></canvas>
+<section class="controls">
+  <h1>Controls</h1>
 
-  <aside>
-    <div class="group">
-      <h2>Pattern</h2>
+  <div class="group">
+    <h2>Pattern</h2>
 
-      <label>
-        Segments
-        <input id="segments" type="number" min="3" max="64" step="1" value="12" />
-      </label>
+    <label>
+      Segments
+      <input id="segments" type="number" min="3" max="64" step="1" value="12" />
+    </label>
 
-      <label>
-        Zoom
-        <input id="zoom" type="range" min="0.5" max="3" step="0.01" value="1.25" />
-      </label>
+    <label>
+      Zoom
+      <input id="zoom" type="range" min="0.5" max="3" step="0.01" value="1.25" />
+    </label>
 
-      <label>
-        Rotation
-        <input id="rotation" type="range" min="-180" max="180" step="0.1" value="0" />
-      </label>
+    <label>
+      Rotation
+      <input id="rotation" type="range" min="-180" max="180" step="0.1" value="0" />
+    </label>
 
-      <label>
-        Mirror every other wedge
-        <input id="mirror" type="checkbox" checked />
-      </label>
+    <label>
+      Mirror every other wedge
+      <input id="mirror" type="checkbox" checked />
+    </label>
 
-      <label>
-        Smoothing
-        <input id="smooth" type="checkbox" checked />
-      </label>
+    <label>
+      Smoothing
+      <input id="smooth" type="checkbox" checked />
+    </label>
 
-      <div class="note">
-        Tip: fewer segments = faster. If it’s laggy, lower segments or your browser’s camera resolution.
-      </div>
+    <div class="note">
+      Tip: fewer segments = faster. If it's laggy, lower segments or your browser's camera resolution.
     </div>
+  </div>
 
-    <div class="group">
-      <h2>Center</h2>
+  <div class="group">
+    <h2>Center</h2>
 
-      <label>
-        Center X
-        <input id="cx" type="range" min="0" max="1" step="0.001" value="0.5" />
-      </label>
+    <label>
+      Center X
+      <input id="cx" type="range" min="0" max="1" step="0.001" value="0.5" />
+    </label>
 
-      <label>
-        Center Y
-        <input id="cy" type="range" min="0" max="1" step="0.001" value="0.5" />
-      </label>
+    <label>
+      Center Y
+      <input id="cy" type="range" min="0" max="1" step="0.001" value="0.5" />
+    </label>
 
-      <label>
-        Radius
-        <input id="radius" type="range" min="0.25" max="1.2" step="0.01" value="0.9" />
-      </label>
+    <label>
+      Radius
+      <input id="radius" type="range" min="0.25" max="1.2" step="0.01" value="0.9" />
+    </label>
 
-      <div class="note">
-        Center controls which part of the video you sample. Radius controls how much of the frame is used.
-      </div>
+    <div class="note">
+      Center controls which part of the video you sample. Radius controls how much of the frame is used.
     </div>
+  </div>
 
-    <div class="group">
-      <h2>Camera</h2>
-      <label>
-        Facing
-        <select id="facing">
-          <option value="user" selected>Front (selfie)</option>
-          <option value="environment">Back</option>
-        </select>
-      </label>
+  <div class="group">
+    <h2>Camera</h2>
+    <label>
+      Facing
+      <select id="facing">
+        <option value="user">Front (selfie)</option>
+        <option value="environment" selected>Back</option>
+      </select>
+    </label>
 
-      <label>
-        Target width
-        <input id="camW" type="number" min="160" max="1920" step="10" value="640" />
-      </label>
+    <label>
+      Target width
+      <input id="camW" type="number" min="160" max="1920" step="10" value="640" />
+    </label>
 
-      <label>
-        Target height
-        <input id="camH" type="number" min="120" max="1080" step="10" value="480" />
-      </label>
+    <label>
+      Target height
+      <input id="camH" type="number" min="120" max="1080" step="10" value="480" />
+    </label>
 
-      <div class="note">
-        Camera constraints are “best effort”. If permission fails, try different width/height or switch facing mode.
-      </div>
+    <div class="note">
+      Camera constraints are "best effort". If permission fails, try different width/height or switch facing mode.
     </div>
-  </aside>
-</main>
+  </div>
+</section>
 
 <video id="v" playsinline muted></video>
 
@@ -230,7 +248,6 @@
   const elCamW = document.getElementById('camW');
   const elCamH = document.getElementById('camH');
 
-  // Offscreen canvas to sample the camera frame
   const src = document.createElement('canvas');
   const sctx = src.getContext('2d');
 
@@ -270,7 +287,6 @@
       video.srcObject = stream;
       await video.play();
 
-      // Set source canvas to the actual video size
       src.width = video.videoWidth || targetW;
       src.height = video.videoHeight || targetH;
 
@@ -313,7 +329,7 @@
     elCy.value = 0.5;
     elRadius.value = 0.9;
 
-    elFacing.value = "user";
+    elFacing.value = "environment";
     elCamW.value = 640;
     elCamH.value = 480;
   }
@@ -331,11 +347,10 @@
     const rot = (parseFloat(elRotation.value) * Math.PI) / 180;
     const mirror = !!elMirror.checked;
 
-    const radius = Math.min(W, H) * parseFloat(elRadius.value);
+    const diag = Math.sqrt(W * W + H * H);
+    const radius = diag * parseFloat(elRadius.value);
 
-    // Camera frame -> src canvas
     if (video.readyState >= 2) {
-      // Keep src canvas matched to video size (in case it changes)
       if (src.width !== video.videoWidth || src.height !== video.videoHeight) {
         src.width = video.videoWidth;
         src.height = video.videoHeight;
@@ -345,43 +360,50 @@
 
     ctx.imageSmoothingEnabled = !!elSmooth.checked;
 
-    // Clear
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.clearRect(0, 0, W, H);
 
-    // Kaleidoscope: draw N mirrored wedges around center
+    // Fill background with the average color of the current camera frame
+    if (src.width > 0 && src.height > 0) {
+      const small = 8;
+      sctx.save();
+      sctx.drawImage(src, 0, 0, small, small);
+      const d = sctx.getImageData(0, 0, small, small).data;
+      let r = 0, g = 0, b = 0;
+      const count = small * small;
+      for (let p = 0; p < count; p++) {
+        r += d[p * 4];
+        g += d[p * 4 + 1];
+        b += d[p * 4 + 2];
+      }
+      ctx.fillStyle = `rgb(${Math.round(r / count)},${Math.round(g / count)},${Math.round(b / count)})`;
+      sctx.restore();
+      sctx.drawImage(video, 0, 0, src.width, src.height);
+    } else {
+      ctx.fillStyle = '#1a1a22';
+    }
+    ctx.fillRect(0, 0, W, H);
+
     const wedge = (Math.PI * 2) / segments;
 
-    // Map from destination wedge to a slice of the source:
-    // We'll clip a wedge, rotate into place, then draw the source image so that
-    // the chosen center of the source aligns with the kaleidoscope center.
-    //
-    // We sample the source around its own center (srcCx, srcCy), which is linked
-    // to elCx/elCy for intuitive control.
     const srcCx = src.width * parseFloat(elCx.value);
     const srcCy = src.height * parseFloat(elCy.value);
 
     for (let i = 0; i < segments; i++) {
       ctx.save();
 
-      // Move to center and rotate to wedge position
       ctx.translate(cx, cy);
       ctx.rotate(rot + i * wedge);
 
-      // Mirror every other wedge if enabled
       if (mirror && (i % 2 === 1)) {
         ctx.scale(-1, 1);
       }
 
-      // Clip a wedge
       ctx.beginPath();
       ctx.moveTo(0, 0);
       ctx.arc(0, 0, radius, -wedge / 2, wedge / 2);
       ctx.closePath();
       ctx.clip();
 
-      // Draw the camera frame with zoom.
-      // We translate so that src center maps to (0,0) in destination space.
       ctx.scale(zoom, zoom);
       ctx.drawImage(src, -srcCx, -srcCy);
 
@@ -391,26 +413,20 @@
     rafId = requestAnimationFrame(render);
   }
 
-  // Events
   btnStart.addEventListener('click', startCamera);
   btnStop.addEventListener('click', stopCamera);
   btnReset.addEventListener('click', () => { resetControls(); if (stream) startCamera(); });
 
-  // If user changes facing/constraints while running, restart camera.
   [elFacing, elCamW, elCamH].forEach(el => {
     el.addEventListener('change', () => { if (stream) startCamera(); });
   });
 
-  // If segments changed, clamp immediately
   elSegments.addEventListener('change', () => {
     const v = Math.max(3, Math.min(64, parseInt(elSegments.value, 10) || 12));
     elSegments.value = v;
   });
 
-  // Auto-start if possible (some browsers require gesture; button is there anyway)
-  if (navigator.mediaDevices?.getUserMedia) {
-    // optional: do nothing; user presses Start
-  } else {
+  if (!navigator.mediaDevices?.getUserMedia) {
     alert("Your browser doesn't support getUserMedia.");
   }
 })();
